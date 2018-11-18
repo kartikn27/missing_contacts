@@ -47,6 +47,20 @@ class MissingContacts(object):
                 'company_name': contact['company_name'],
                 'industry_name': self.get_sector_name(contact['naics_sector'])}
 
+    def get_relationships_payload(self, contact):
+        if isinstance(contact['supervisor_email'], (float)) and math.isnan(contact['supervisor_email']):
+            return {}
+        elif contact['supervisor_email'] == '':
+            return {}
+        else:
+            r = requests.get(
+                "https://dataengineerinterview.thunderturtle.io/contacts/search?email=" + contact['supervisor_email'],
+                headers={"X-Api-Key": "yjciUwPfqW3IfQZaZRQlc4vrPjrPjs026cE67uF0"})
+            response = json.loads(r.text)
+            if len(response['data']) > 0:
+                return {'id': response['data'][0]['id']}
+            else:
+                return {}
 
     def start_post_contacts(self, required_sector_codes):
         df_10 = self.df_contacts.head(10)
@@ -61,8 +75,8 @@ class MissingContacts(object):
     def create_attributes_relationships(self, contact):
         attributes_payload = self.get_attributes_payload(contact)
         print(attributes_payload)
-        # relationships_payload = get_relationships_payload(contact)
-        # print(relationships_payload)
+        relationships_payload = self.get_relationships_payload(contact)
+        print(relationships_payload)
         # print(' ------ ----- ------')
         # contact_object = Contact(attributes_payload, relationships_payload)
         # post_contact_payload(contact_object)
