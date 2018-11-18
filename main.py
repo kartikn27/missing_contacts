@@ -3,8 +3,10 @@ import math
 import requests
 import json
 import sys
+import xlrd
 from lib.contact import Contact
-from lib.constants import *
+from lib.constants import Constants
+from lib.http_service import HttpService
 
 class MissingContacts(object):
 
@@ -15,10 +17,8 @@ class MissingContacts(object):
         self.df_codes = pd.read_excel(self.codes_file)
         self.df_contacts = pd.read_csv(self.contacts_file)
 
-
     def get_sector_codes(self, sector_name):
         return self.df_codes[self.df_codes['2017 NAICS US Title'] == sector_name]['2017 NAICS US   Code'].values[0]
-
 
     def get_required_sector_codes(self, sector_name_list):
         sector_code_list = []
@@ -39,13 +39,12 @@ class MissingContacts(object):
     def get_sector_name(self, code):
         return self.df_codes[self.df_codes['2017 NAICS US   Code'] == code]['2017 NAICS US Title'].values[0]
 
-
     def get_attributes_payload(self, contact):
-        return {'first_name': contact['first_name'],
-                'last_name': contact['last_name'],
-                'email': contact['email'],
-                'company_name': contact['company_name'],
-                'industry_name': self.get_sector_name(contact['naics_sector'])}
+        return {"first_name": contact['first_name'],
+                "last_name": contact['last_name'],
+                "email": contact['email'],
+                "company_name": contact['company_name'],
+                "industry_name": self.get_sector_name(contact['naics_sector'])}
 
     def get_relationships_payload(self, contact):
         if isinstance(contact['supervisor_email'], (float)) and math.isnan(contact['supervisor_email']):
@@ -53,17 +52,14 @@ class MissingContacts(object):
         elif contact['supervisor_email'] == '':
             return {}
         else:
-            r = requests.get(
-                "https://dataengineerinterview.thunderturtle.io/contacts/search?email=" + contact['supervisor_email'],
-                headers={"X-Api-Key": "yjciUwPfqW3IfQZaZRQlc4vrPjrPjs026cE67uF0"})
-            response = json.loads(r.text)
+            response = HttpService.get_supervisor_info(self, contact['supervisor_email'])
             if len(response['data']) > 0:
                 return {'id': response['data'][0]['id']}
             else:
                 return {}
 
     def start_post_contacts(self, required_sector_codes):
-        df_10 = self.df_contacts.head(10)
+        df_10 = self.df_contacts.head(100)
         for index, row in df_10.iterrows():
             contacts_sector = str(row['naics_sector'])
             if contacts_sector.startswith(required_sector_codes[0]) or contacts_sector.startswith(
@@ -71,31 +67,24 @@ class MissingContacts(object):
                 required_sector_codes[2]) or contacts_sector.startswith(required_sector_codes[3]):
                 self.create_attributes_relationships(row)
 
-
     def create_attributes_relationships(self, contact):
         attributes_payload = self.get_attributes_payload(contact)
-        print(attributes_payload)
         relationships_payload = self.get_relationships_payload(contact)
-        print(relationships_payload)
-        # print(' ------ ----- ------')
-        # contact_object = Contact(attributes_payload, relationships_payload)
-        # post_contact_payload(contact_object)
+        contact_object = Contact(attributes_payload, relationships_payload)
+        self.post_contact_payload(contact_object)
+
+    def post_contact_payload(self, contact_object):
+        attributes = contact_object.get_attributes()
+        relationships = contact_object.get_relationships()
+        status_code = HttpService.post_contact_info(self, attributes, relationships)
+        print(' ------ ------ ------- ', status_code)
+
 
 
 if __name__ == "__main__":
     sys.argv.pop(0)
     required_sectors = sys.argv
-    print(required_sectors)
-    mc = MissingContacts(CODES_FILE, CONTACTS_FILE, required_sectors)
+    mc = MissingContacts(Constants.CODES_FILE, Constants.CONTACTS_FILE, required_sectors)
     required_sector_codes = mc.get_required_sector_codes(required_sectors)
     mc.start_post_contacts(required_sector_codes)
-
-
-
-
-
-
-
-
-
 
