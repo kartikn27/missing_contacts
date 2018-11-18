@@ -1,25 +1,56 @@
 import pandas as pd
 import math
-import requests
-import json
 import sys
 import xlrd
+from validate_email import validate_email
 from lib.contact import Contact
 from lib.constants import Constants
 from lib.http_service import HttpService
 
+# Main class MissingContacts handles the all the work flows for the application
 class MissingContacts(object):
 
+    """
+    constructor for the class
+    Initialized objects are :
+      1. self.codes_files: path to the sector codex XLS file
+      2. self.contacts_file:  path to the missing contacts csv file
+      3. self.sector_name_list: list of sectors passed as command line arguments
+      4. self.df_codes: Pandas DataFrame for sector codes info
+      5. self.df_contacts: Pandas DatFrame for contacts info
+    """
     def __init__(self, codes_file, contacts_file, required_sectors):
         self.codes_file = codes_file
         self.contacts_file = contacts_file
         self.sector_name_list = required_sectors
         self.df_codes = pd.read_excel(self.codes_file)
-        self.df_contacts = pd.read_csv(self.contacts_file)
+        self.df_contacts = clean_dataframe(pd.read_csv(self.contacts_file))
 
+    """
+    Parameters
+    ----------
+    arg1: int
+        name of the sector
+    
+    Returns
+    -------
+    int
+        code of the sector
+    """
     def get_sector_codes(self, sector_name):
         return self.df_codes[self.df_codes['2017 NAICS US Title'] == sector_name]['2017 NAICS US   Code'].values[0]
 
+    """
+    Parameters
+    ----------
+    arg1: list/Array
+        list of all the names of the required sectors
+
+    Returns
+    -------
+    list/Array:    
+        list of all the codes of the required sectors
+    """
     def get_required_sector_codes(self, sector_name_list):
         sector_code_list = []
         temp_codes = []
@@ -35,17 +66,60 @@ class MissingContacts(object):
             required_sector_codes = sector_code_list + temp_codes
         return required_sector_codes
 
+    """
+    Parameters
+    ----------
+    arg1: int
+        code of the sector
 
+    Returns
+    -------
+    string
+        name of the sector
+    """
     def get_sector_name(self, code):
         return self.df_codes[self.df_codes['2017 NAICS US   Code'] == code]['2017 NAICS US Title'].values[0]
 
-    def get_attributes_payload(self, contact):
-        return {"first_name": contact['first_name'],
-                "last_name": contact['last_name'],
-                "email": contact['email'],
-                "company_name": contact['company_name'],
-                "industry_name": self.get_sector_name(contact['naics_sector'])}
+    """
+    Summary
+    -------
+    Generates an object for the attributes, which is part of the POST contact payload 
 
+    Parameters
+    ----------
+    arg1: object
+        one contact object/Dictionary        
+
+    Returns
+    -------
+    Object/dictionary which will be part of the attributes object in POST contact request
+    """
+    def get_attributes_payload(self, contact):
+        if(validate_email(contact['email'])):
+            return {"first_name": clean_str(contact['first_name']),
+                    "last_name": clean_str(contact['last_name']),
+                    "email": contact['email'],
+                    "company_name": clean_str(contact['company_name']),
+                    "industry_name": clean_str(self.get_sector_name(contact['naics_sector']))}
+
+    """
+    Summary
+    -------
+    Generates an object for the relationships, which is part of the POST contact payload 
+    If the supervisor email is NULL or blank, empty object is returned
+    If supervisor email exists, a GET request is invoked to find the `id`
+        If `id` is found and object with `id` is returned
+        Else blank object is returned 
+    
+    Parameters
+    ----------
+    arg1: object
+        one contact object/Dictionary        
+
+    Returns
+    -------
+    Object/dictionary which will be part of the relationships object in POST contact request
+    """
     def get_relationships_payload(self, contact):
         if isinstance(contact['supervisor_email'], (float)) and math.isnan(contact['supervisor_email']):
             return {}
@@ -58,6 +132,19 @@ class MissingContacts(object):
             else:
                 return {}
 
+    """
+    Summary
+    -------
+    This method loops through all the rows for required sectors in the CSV 
+    It checks if the sector to be looked start with the sector ids of the sectors passed through argv
+    It checks for four sector ids which is obtained from sector passed through argv
+    If the sector id in csv STARTSWITH any of the four sector ids, it is further processed
+    
+    Parameters
+    ----------
+    arg1: list
+        list of required parent sector ids    
+    """
     def start_post_contacts(self, required_sector_codes):
         df_10 = self.df_contacts.head(100)
         for index, row in df_10.iterrows():
@@ -67,23 +154,82 @@ class MissingContacts(object):
                 required_sector_codes[2]) or contacts_sector.startswith(required_sector_codes[3]):
                 self.create_attributes_relationships(row)
 
+    """
+    Summary
+    -------
+    Method calls the method which creates attributes and relationships payload 
+    Further is instantiates the Contact class and assigns the obtained attributes and relationships
+     
+    Parameters
+    ----------
+    arg1: object
+        one contact object/Dictionary    
+    """
     def create_attributes_relationships(self, contact):
         attributes_payload = self.get_attributes_payload(contact)
         relationships_payload = self.get_relationships_payload(contact)
         contact_object = Contact(attributes_payload, relationships_payload)
         self.post_contact_payload(contact_object)
 
+    """
+    Summary
+    -------
+    Method passes the attributes and relationships obtained from Contact getter to POST contact service
+    
+    Parameters
+    ----------
+    arg1: Contact Class Object
+        one Contact object
+    """
     def post_contact_payload(self, contact_object):
         attributes = contact_object.get_attributes()
         relationships = contact_object.get_relationships()
         status_code = HttpService.post_contact_info(self, attributes, relationships)
         print(' ------ ------ ------- ', status_code)
 
+"""
+Summary
+-------
+Removes the leading and trailing whitespaces from the string 
+
+Parameters
+----------
+arg1: string
+
+Returns
+-------
+string
+"""
+
+def clean_str(value):
+    return value.strip()
+
+"""
+Summary
+-------
+Returns the Pandas dataframe by removing the rows where the email id NULL 
+    
+Parameters
+----------
+arg1: Pandas dataframe        
+
+Returns
+-------
+Pandas dataframe
+"""
+def clean_dataframe(df):
+    return pd.DataFrame.dropna(df, subset=['email'])
 
 
+"""
+ENTRY POINT OF THE APPLICATION
+required sectors ae received from command line arguements
+MissingContacts is instantiated
+"""
 if __name__ == "__main__":
     sys.argv.pop(0)
     required_sectors = sys.argv
+    required_sectors = [clean_str(sector) for sector in required_sectors]
     mc = MissingContacts(Constants.CODES_FILE, Constants.CONTACTS_FILE, required_sectors)
     required_sector_codes = mc.get_required_sector_codes(required_sectors)
     mc.start_post_contacts(required_sector_codes)
