@@ -62,7 +62,7 @@ class MissingContacts(object):
         for sector in sector_name_list:
             code = self.get_sector_codes(sector)
             if code is not None:
-                sector_code_list.append(str(self.get_sector_codes(sector)))
+                sector_code_list.append(str(code))
         for code in sector_code_list:
             if '-' in code:
                 temp_codes.append(code.split('-')[0])
@@ -151,7 +151,7 @@ class MissingContacts(object):
         list of required parent sector ids    
     """
     def start_post_contacts(self, required_sector_codes):
-        #df_10 = self.df_contacts.head(10)
+        # df_10 = self.df_contacts.head(100)
         print(' .... MISSING CONTACTS ARE BEING ADDED TO THE SERVER .... ')
         for index, row in self.df_contacts.iterrows():
             contacts_sector = str(row['naics_sector'])
