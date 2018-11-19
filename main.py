@@ -39,7 +39,7 @@ class MissingContacts(object):
     """
     def get_sector_codes(self, sector_name):
         if self.df_codes[self.df_codes['2017 NAICS US Title'] == sector_name].empty:
-            print(' -- SECTOR CODE NOT FOUND FOR ' + sector_name + ' --')
+            print(' ---- SECTOR CODE NOT FOUND FOR ' + sector_name + ' ---- ')
             return None
         else:
             return self.df_codes[self.df_codes['2017 NAICS US Title'] == sector_name]['2017 NAICS US   Code'].values[0]
@@ -56,7 +56,6 @@ class MissingContacts(object):
         list of all the codes of the required sectors
     """
     def get_required_sector_codes(self, sector_name_list):
-        print('sector_name_list ', sector_name_list)
         sector_code_list = []
         temp_codes = []
         required_sector_codes = []
@@ -152,9 +151,9 @@ class MissingContacts(object):
         list of required parent sector ids    
     """
     def start_post_contacts(self, required_sector_codes):
-        df_10 = self.df_contacts.head(300)
+        #df_10 = self.df_contacts.head(10)
         print(' .... MISSING CONTACTS ARE BEING ADDED TO THE SERVER .... ')
-        for index, row in df_10.iterrows():
+        for index, row in self.df_contacts.iterrows():
             contacts_sector = str(row['naics_sector'])
             if contacts_sector.startswith(tuple(required_sector_codes)):
                 self.create_attributes_relationships(row)
@@ -233,7 +232,7 @@ MissingContacts is instantiated
 """
 if __name__ == "__main__":
     if len(sys.argv) <= 1:
-        print(' ---- No sector names are passed as command line argument ---- ')
+        print(' ---- NO SECTOR NAMES ARE PASSED AS COMMAND LINE ARGUMENTS ---- ')
         sys.exit()
     else:
         sys.argv.pop(0)
