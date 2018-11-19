@@ -200,7 +200,6 @@ Returns
 -------
 string
 """
-
 def clean_str(value):
     return value.strip()
 
