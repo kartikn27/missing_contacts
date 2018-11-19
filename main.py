@@ -142,8 +142,8 @@ class MissingContacts(object):
     -------
     This method loops through all the rows for required sectors in the CSV 
     It checks if the sector to be looked start with the sector ids of the sectors passed through argv
-    It checks for four sector ids which is obtained from sector passed through argv
-    If the sector id in csv STARTSWITH any of the four sector ids, it is further processed
+    It checks for all the valid sector ids which are obtained from sector passed through argv
+    If the sector id in csv STARTSWITH any of the valid sector ids, it is further processed
     
     Parameters
     ----------
