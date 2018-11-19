@@ -62,4 +62,5 @@ class HttpService(object):
             data = json.dumps(payload_obj),
             headers = header_obj
         )
-        return r.status_code
+        response = json.loads(r.text)
+        return response

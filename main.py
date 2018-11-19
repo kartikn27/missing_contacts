@@ -38,7 +38,11 @@ class MissingContacts(object):
         code of the sector
     """
     def get_sector_codes(self, sector_name):
-        return self.df_codes[self.df_codes['2017 NAICS US Title'] == sector_name]['2017 NAICS US   Code'].values[0]
+        if self.df_codes[self.df_codes['2017 NAICS US Title'] == sector_name].empty:
+            print(' -- SECTOR CODE NOT FOUND FOR ' + sector_name + ' --')
+            return None
+        else:
+            return self.df_codes[self.df_codes['2017 NAICS US Title'] == sector_name]['2017 NAICS US   Code'].values[0]
 
     """
     Parameters
@@ -52,12 +56,14 @@ class MissingContacts(object):
         list of all the codes of the required sectors
     """
     def get_required_sector_codes(self, sector_name_list):
+        print('sector_name_list ', sector_name_list)
         sector_code_list = []
         temp_codes = []
         required_sector_codes = []
         for sector in sector_name_list:
-            sector = sector.rstrip(',')
-            sector_code_list.append(str(self.get_sector_codes(sector)))
+            code = self.get_sector_codes(sector)
+            if code is not None:
+                sector_code_list.append(str(self.get_sector_codes(sector)))
         for code in sector_code_list:
             if '-' in code:
                 temp_codes.append(code.split('-')[0])
@@ -146,13 +152,13 @@ class MissingContacts(object):
         list of required parent sector ids    
     """
     def start_post_contacts(self, required_sector_codes):
-        df_10 = self.df_contacts.head(100)
+        df_10 = self.df_contacts.head(300)
+        print(' .... MISSING CONTACTS ARE BEING ADDED TO THE SERVER .... ')
         for index, row in df_10.iterrows():
             contacts_sector = str(row['naics_sector'])
-            if contacts_sector.startswith(required_sector_codes[0]) or contacts_sector.startswith(
-                    required_sector_codes[1]) or contacts_sector.startswith(
-                required_sector_codes[2]) or contacts_sector.startswith(required_sector_codes[3]):
+            if contacts_sector.startswith(tuple(required_sector_codes)):
                 self.create_attributes_relationships(row)
+        print(' .... MISSING CONTACTS HAVE BEEN ADDED TO THE SERVER .... ')
 
     """
     Summary
@@ -184,8 +190,8 @@ class MissingContacts(object):
     def post_contact_payload(self, contact_object):
         attributes = contact_object.get_attributes()
         relationships = contact_object.get_relationships()
-        status_code = HttpService.post_contact_info(self, attributes, relationships)
-        print(' ------ ------ ------- ', status_code)
+        response = HttpService.post_contact_info(self, attributes, relationships)
+        print('Contact with email ' +  response['data']['attributes']['email'] + ' has been added to the server!')
 
 """
 Summary
@@ -222,14 +228,18 @@ def clean_dataframe(df):
 
 """
 ENTRY POINT OF THE APPLICATION
-required sectors ae received from command line arguements
+required sectors are received from command line arguments
 MissingContacts is instantiated
 """
 if __name__ == "__main__":
-    sys.argv.pop(0)
-    required_sectors = sys.argv
-    required_sectors = [clean_str(sector) for sector in required_sectors]
-    mc = MissingContacts(Constants.CODES_FILE, Constants.CONTACTS_FILE, required_sectors)
-    required_sector_codes = mc.get_required_sector_codes(required_sectors)
-    mc.start_post_contacts(required_sector_codes)
+    if len(sys.argv) <= 1:
+        print(' ---- No sector names are passed as command line argument ---- ')
+        sys.exit()
+    else:
+        sys.argv.pop(0)
+        required_sectors = sys.argv
+        required_sectors = [clean_str(sector) for sector in required_sectors]
+        mc = MissingContacts(Constants.CODES_FILE, Constants.CONTACTS_FILE, required_sectors)
+        required_sector_codes = mc.get_required_sector_codes(required_sectors)
+        mc.start_post_contacts(required_sector_codes)
 
