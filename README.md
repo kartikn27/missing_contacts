@@ -1,8 +1,11 @@
 # MISSING CONTACTS
 Copy missing contacts from the csv to contacts API endpoint
 
+### System Requirements:
+* Python 3.6
+
 ## Steps to Run:
-### 1. Decompress/Unzip contacts.csv.bz2
+### 1. Decompress/Unzip `/ingestion_files/contacts.csv.bz2`
 By default, it should be decompressed as **contacts.csv**
 
 If not, rename the files as **contacts.csv**
@@ -25,15 +28,15 @@ python main.py 'Mining, Quarrying, and Oil and Gas Extraction' 'Transportation a
 ```
 
 ## Application Workflow
-1. The application is invoked through command line argument, which accepts three required sectors.
+1. The application is invoked through command line argument, which accepts ***one or more*** required sector names.
 
-2. These sectors are searched in **/ingestion_files/2-6 digit_2017_Codes.xlsx** and their corresponding sector ids is obtained.
+2. These sectors are searched in **/ingestion_files/2-6 digit_2017_Codes.xlsx** and their corresponding sector codes/ids are obtained.
 
 3. These parent sector ids are two digit numbers. So to obtain the industry which belongs to these sectors, all the sectors which start with the obtained two digit sector ids are considered are the industry names of the contact.
 
 4. From the filtered contacts, first_name, last_name, email, industry_name, company_name form the part of the attributes object.
 
-5. To find the supervisor relationship, the supervisor email is searched using the ***/contacts/search?email=*** GET request and for the obtained request, the contact id is added to he relationships object.
+5. To find the supervisor relationship, the supervisor email is searched using the ***/contacts/search?email=*** GET request and for the obtained request, the contact id is added to the relationships object.
 
 6. The POST new contact payload consists of attributes and relationships objects from steps 4 and 5. The contacts are POST to api ***/contacts***
 
@@ -45,4 +48,16 @@ python main.py 'Mining, Quarrying, and Oil and Gas Extraction' 'Transportation a
 
 3. Any sector in **/ingestion_files/2-6 digit_2017_Codes.xlsx** whose sector id, which matches with the first two digits of the parent sectors(obtained from command line) are the industry names of the sectors.
 
-4. Contacts with similar email id are passed through POST request.
+4. Contacts with similar email id are allowed through POST request.
+
+## Error Condition Checks
+1. If you do not pass any sector name as the command line arguement, application will display the following message
+```
+---- No sector names are passed as command line argument ----
+```
+
+2. If a sector code is not found for the sector name you passed as the command line argument, following example message will be displayed
+
+```
+-- SECTOR CODE NOT FOUND FOR Minning, Quarrying --
+```
